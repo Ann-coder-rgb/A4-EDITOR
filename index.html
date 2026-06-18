@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>實現排版自由 🎉</title>
-     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎉</text></svg>">
-    <!-- Tailwind CSS -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎉</text></svg>">
+    
     <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone@7.23.12/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.3/babel.min.js"></script>
     
     <style>
         .scrollbar-hide::-webkit-scrollbar { display: none; }
@@ -48,10 +48,9 @@
 </head>
 <body>
     <div id="root"></div>
-<script type="text/babel" data-presets="react">
-    /** @jsx React.createElement */
-    /** @jsxFrag React.Fragment */
-    const { useState, useRef, useEffect, useLayoutEffect } = React;
+
+    <script type="text/babel" data-type="module">
+        const { useState, useRef, useEffect, useLayoutEffect } = React;
 
         const Icon = ({ name, size = 16, className = "" }) => {
             const icons = {
@@ -287,7 +286,6 @@
 
             return (
                 <div className="flex flex-col h-screen overflow-hidden bg-[#020617] select-none touch-none">
-                    {/* 頂部控制列 */}
                     <header className="h-14 bg-slate-900/90 border-b border-sky-900/30 flex items-center justify-between px-4 z-[60] backdrop-blur-md">
                         <div className="flex items-center gap-3">
                             <h1 className="text-lg font-bold text-sky-400 tracking-tighter">實現排版自由 🎉</h1>
@@ -311,7 +309,6 @@
                         </div>
                     </header>
 
-                    {/* 中央畫布 */}
                     <main 
                         ref={containerRef} 
                         className="flex-1 relative flex items-center justify-center p-4 bg-slate-950 overflow-hidden"
@@ -351,27 +348,20 @@
                                             }}
                                         />
 
-                                        {/* 全覆蓋操作選單 */}
                                         {selectedId === obj.id && (
                                             <div 
                                                 className="menu-overlay absolute inset-0 flex flex-col items-center justify-center gap-4 p-2 z-[110] animate-in fade-in duration-200"
                                                 onMouseDown={(e) => {
-                                                    // 核心修正：如果點擊的是選單背景而非按鈕，則允許執行父元件的拖拽邏輯
-                                                    if (e.target === e.currentTarget) {
-                                                        // 不停止冒泡，讓父級 div 捕獲 handleMouseDown
-                                                    } else {
+                                                    if (e.target !== e.currentTarget) {
                                                         e.stopPropagation();
                                                     }
                                                 }}
                                                 onTouchStart={(e) => {
-                                                    if (e.target === e.currentTarget) {
-                                                        // 同上，不停止冒泡
-                                                    } else {
+                                                    if (e.target !== e.currentTarget) {
                                                         e.stopPropagation();
                                                     }
                                                 }}
                                             >
-                                                {/* 尺寸選擇區 */}
                                                 <div className="grid grid-cols-4 gap-2 w-full max-w-[280px]">
                                                     {['1', '1/2', '1/4', '1/8'].map(t => (
                                                         <button 
@@ -384,7 +374,6 @@
                                                     ))}
                                                 </div>
 
-                                                {/* 功能操作區 */}
                                                 <div className="flex items-center gap-2 w-full max-w-[280px]">
                                                     <button onClick={(e) => { e.stopPropagation(); toggleRotate(obj.id); }} className="flex-1 h-12 flex items-center justify-center bg-slate-900/80 text-sky-400 border border-sky-400/20 rounded-xl btn-active">
                                                         <Icon name="rotate-cw" size={24} />
@@ -415,7 +404,6 @@
                         </div>
                     </main>
 
-                    {/* 底部資源庫 */}
                     <footer className="library-drawer h-24 shrink-0 flex flex-col z-50">
                         <div className="px-4 py-2 flex items-center justify-between border-b border-slate-800/30">
                             <h2 className="text-sm font-bold text-sky-400 uppercase tracking-widest flex items-center gap-2">
