@@ -3,55 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>實現排版自由 🎉</title>
+    <title>實現排版自由 🎉 </title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎉</text></svg>">
     
+    <!-- 引入穩定且具備版本號的資源 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.3/babel.min.js"></script>
     
+    <!-- 設定 Tailwind 自訂奢華咖啡色調與暗黑模式設定 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        coffee: {
+                            50: '#fdfcfb',
+                            100: '#f8f5f0',
+                            200: '#e4d3c5', // 高雅象牙白
+                            300: '#d0b29a',
+                            400: '#b28566',
+                            500: '#8c5e3c',
+                            600: '#70472b',
+                            700: '#52331e', // 皮革暖褐
+                            800: '#3a2212', // 濃縮咖啡
+                            900: '#231309', // 極深碳褐
+                            950: '#0f0804'  // 曜石咖啡黑
+                        },
+                        obsidian: {
+                            800: '#1c1917',
+                            900: '#0c0a09', // 曜石極黑
+                            950: '#040404'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         body { 
             margin: 0; 
             padding: 0; 
-            background-color: #020617; 
-            color: white;
+            background-color: #040404; 
+            color: #f8f5f0;
             overscroll-behavior-y: contain;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
         
+        /* 奢華金琥珀光暈選取框 */
         .selected-object {
-            outline: 4px solid #38bdf8;
+            outline: 4px solid #d97706;
             outline-offset: -2px;
-            box-shadow: 0 0 40px rgba(56, 189, 248, 0.4);
+            box-shadow: 0 0 35px rgba(217, 119, 6, 0.45);
         }
 
         .menu-overlay {
-            background: rgba(2, 6, 23, 0.7);
-            backdrop-filter: blur(4px);
+            background: rgba(12, 10, 9, 0.85);
+            backdrop-filter: blur(6px);
         }
 
         .library-drawer {
-            background: linear-gradient(to top, #020617, #0f172a);
-            border-top: 1px solid rgba(56, 189, 248, 0.2);
+            background: linear-gradient(to top, #040404, #1c1917);
+            border-top: 1px solid rgba(217, 119, 6, 0.15);
         }
 
-        /* 按鈕點擊效果 */
+        /* 按鈕奢華點擊動態 */
         .btn-active:active {
-            transform: scale(0.9);
-            filter: brightness(1.2);
+            transform: scale(0.95);
+            filter: brightness(1.15);
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
+    <!-- 強制 Babel 使用傳統編譯 -->
     <script type="text/babel" data-type="module">
         const { useState, useRef, useEffect, useLayoutEffect } = React;
 
+        // 優雅自建 SVG 圖示庫
         const Icon = ({ name, size = 16, className = "" }) => {
             const icons = {
                 'upload': <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></>,
@@ -82,6 +116,7 @@
             const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
             const [isPortrait, setIsPortrait] = useState(true);
             const [scaleFactor, setScaleFactor] = useState(1); 
+            const [snapLines, setSnapLines] = useState([]); // 儲存當前磁吸對齊線 [{ type: 'v'|'h', val: 數字 }]
             
             const canvasRef = useRef(null);
             const boardRef = useRef(null);
@@ -104,6 +139,7 @@
                 const [lastState, ...remainingHistory] = history;
                 setCanvasObjects(JSON.parse(lastState));
                 setHistory(remainingHistory);
+                setSnapLines([]);
             };
 
             const calculateSmartSize = (type, currentPaperPortrait, isManualRotated = false) => {
@@ -205,25 +241,119 @@
                 });
             };
 
+            // 優化一：智能磁吸與貼齊對齊演算法
             const handleMouseMove = (e) => {
                 if (!draggingId) return;
                 const rect = boardRef.current.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                let newX = (clientX - rect.left) / scaleFactor - dragOffset.x;
-                let newY = (clientY - rect.top) / scaleFactor - dragOffset.y;
-                const obj = canvasObjects.find(o => o.id === draggingId);
                 
-                const snap = 10;
-                if (Math.abs(newX) < snap) newX = 0;
-                if (Math.abs(newX - (A4_WIDTH - obj.width)) < snap) newX = A4_WIDTH - obj.width;
-                if (Math.abs(newY) < snap) newY = 0;
-                if (Math.abs(newY - (A4_HEIGHT - obj.height)) < snap) newY = A4_HEIGHT - obj.height;
+                let rawX = (clientX - rect.left) / scaleFactor - dragOffset.x;
+                let rawY = (clientY - rect.top) / scaleFactor - dragOffset.y;
+                
+                const obj = canvasObjects.find(o => o.id === draggingId);
+                const otherObjects = canvasObjects.filter(o => o.id !== draggingId);
+                
+                const snapThreshold = 12; // 磁吸感應半徑 (px)
+                let snappedX = rawX;
+                let snappedY = rawY;
+                let activeLines = [];
 
-                setCanvasObjects(prev => prev.map(o => o.id === draggingId ? { ...o, x: newX, y: newY } : o));
+                // 1. X 軸磁吸對齊計算 (邊緣與中心)
+                let bestDiffX = snapThreshold;
+                let finalSnapX = null;
+
+                // 建立所有潛在的對齊參考點
+                const xRefs = [
+                    { value: 0, label: 'A4 左邊緣' },
+                    { value: A4_WIDTH, label: 'A4 右邊緣' },
+                    { value: A4_WIDTH / 2, label: 'A4 垂直中心線' }
+                ];
+                otherObjects.forEach(o => {
+                    xRefs.push({ value: o.x, label: '物件左邊緣' });
+                    xRefs.push({ value: o.x + o.width, label: '物件右邊緣' });
+                    xRefs.push({ value: o.x + o.width / 2, label: '物件垂直中心線' });
+                });
+
+                // 本身物件的對齊感應點
+                const xTargets = [
+                    { value: rawX, offset: 0 }, // 物件左緣貼齊參考點
+                    { value: rawX + obj.width, offset: -obj.width }, // 物件右緣貼齊參考點
+                    { value: rawX + obj.width / 2, offset: -obj.width / 2 } // 物件中心貼齊參考點
+                ];
+
+                xTargets.forEach(target => {
+                    xRefs.forEach(ref => {
+                        const diff = Math.abs(target.value - ref.value);
+                        if (diff < bestDiffX) {
+                            bestDiffX = diff;
+                            finalSnapX = ref.value + target.offset;
+                            // 紀錄此時需要繪製的對齊線
+                            activeLines.push({ type: 'v', val: ref.value });
+                        }
+                    });
+                });
+
+                if (finalSnapX !== null) {
+                    snappedX = finalSnapX;
+                    // 只保留最合適的對齊線
+                    const bestLine = activeLines.find(l => l.type === 'v' && (l.val === snappedX || l.val === snappedX + obj.width || l.val === snappedX + obj.width/2));
+                    activeLines = bestLine ? [bestLine] : activeLines.slice(-1);
+                } else {
+                    activeLines = activeLines.filter(l => l.type !== 'v');
+                }
+
+                // 2. Y 軸磁吸對齊計算 (邊緣與中心)
+                let bestDiffY = snapThreshold;
+                let finalSnapY = null;
+
+                const yRefs = [
+                    { value: 0, label: 'A4 頂邊緣' },
+                    { value: A4_HEIGHT, label: 'A4 底邊緣' },
+                    { value: A4_HEIGHT / 2, label: 'A4 水平中心線' }
+                ];
+                otherObjects.forEach(o => {
+                    yRefs.push({ value: o.y, label: '物件頂邊緣' });
+                    yRefs.push({ value: o.y + o.height, label: '物件底邊緣' });
+                    yRefs.push({ value: o.y + o.height / 2, label: '物件水平中心線' });
+                });
+
+                const yTargets = [
+                    { value: rawY, offset: 0 }, // 物件頂緣貼齊
+                    { value: rawY + obj.height, offset: -obj.height }, // 物件底緣貼齊
+                    { value: rawY + obj.height / 2, offset: -obj.height / 2 } // 物件水平中心貼齊
+                ];
+
+                yTargets.forEach(target => {
+                    yRefs.forEach(ref => {
+                        const diff = Math.abs(target.value - ref.value);
+                        if (diff < bestDiffY) {
+                            bestDiffY = diff;
+                            finalSnapY = ref.value + target.offset;
+                            activeLines.push({ type: 'h', val: ref.value });
+                        }
+                    });
+                });
+
+                if (finalSnapY !== null) {
+                    snappedY = finalSnapY;
+                    const bestLine = activeLines.find(l => l.type === 'h' && (l.val === snappedY || l.val === snappedY + obj.height || l.val === snappedY + obj.height/2));
+                    if (bestLine) {
+                        activeLines = [...activeLines.filter(l => l.type !== 'h'), bestLine];
+                    }
+                } else {
+                    activeLines = activeLines.filter(l => l.type !== 'h');
+                }
+
+                // 更新磁吸輔助線與座標
+                setSnapLines(activeLines);
+                setCanvasObjects(prev => prev.map(o => o.id === draggingId ? { ...o, x: snappedX, y: snappedY } : o));
             };
 
-            const handleMouseUp = () => setDraggingId(null);
+            const handleMouseUp = () => {
+                setDraggingId(null);
+                setSnapLines([]); // 清除磁吸輔助對齊線
+            };
 
             const updateType = (id, newType) => {
                 saveHistory(canvasObjects);
@@ -256,6 +386,26 @@
                 if (selectedId === id) setSelectedId(null);
             };
 
+            // 優化二：複製圖片時，自動移到最上層 + 轉移選取焦點
+            const handleDuplicate = (e, obj) => {
+                e.stopPropagation();
+                saveHistory(canvasObjects);
+                
+                const newId = Date.now() + Math.random();
+                const copiedObj = { 
+                    ...obj, 
+                    id: newId, 
+                    x: Math.min(obj.x + 24, A4_WIDTH - obj.width), 
+                    y: Math.min(obj.y + 24, A4_HEIGHT - obj.height) 
+                };
+                
+                // 放入 prev 的最前端（確保圖層位於最上層）
+                setCanvasObjects(prev => [copiedObj, ...prev]);
+                
+                // 強制將選取焦點切換到新複製出的物件上
+                setSelectedId(newId);
+            };
+
             const downloadJPG = () => {
                 const canvas = canvasRef.current;
                 const exportW = isPortrait ? 2480 : 3508;
@@ -285,50 +435,73 @@
             };
 
             return (
-                <div className="flex flex-col h-screen overflow-hidden bg-[#020617] select-none touch-none">
-                    <header className="h-14 bg-slate-900/90 border-b border-sky-900/30 flex items-center justify-between px-4 z-[60] backdrop-blur-md">
+                <div className="flex flex-col h-screen overflow-hidden bg-obsidian-950 select-none touch-none">
+                    {/* 精緻奢華風頁首 */}
+                    <header className="h-14 bg-obsidian-900/90 border-b border-coffee-800/30 flex items-center justify-between px-4 z-[60] backdrop-blur-md">
                         <div className="flex items-center gap-3">
-                            <h1 className="text-lg font-bold text-sky-400 tracking-tighter">實現排版自由 🎉</h1>
-                            <label className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500/10 border border-sky-400/30 rounded-lg cursor-pointer hover:bg-sky-500/20 active:scale-95 transition-all">
-                                <Icon name="upload" size={14} className="text-sky-300" />
-                                <span className="text-xs font-bold text-sky-200">上傳</span>
+                            <h1 className="text-lg font-bold text-coffee-200 tracking-tighter flex items-center gap-2">
+                                <span className="text-amber-500">🎉</span> 實現排版自由
+                            </h1>
+                            <label className="flex items-center gap-1.5 px-3 py-1.5 bg-coffee-800/20 border border-coffee-700/50 rounded-lg cursor-pointer hover:bg-coffee-800/40 active:scale-95 transition-all">
+                                <Icon name="upload" size={14} className="text-coffee-300" />
+                                <span className="text-xs font-bold text-coffee-200">上傳照片</span>
                                 <input type="file" className="hidden" multiple accept="image/*" onChange={handleFileUpload} />
                             </label>
                         </div>
                         <div className="flex items-center gap-2">
-                            <button onClick={handleUndo} disabled={history.length === 0} className={`p-2 rounded-lg border border-slate-700 transition-all ${history.length > 0 ? 'bg-slate-800 text-sky-400 active:scale-90' : 'opacity-20'}`}>
+                            <button onClick={handleUndo} disabled={history.length === 0} className={`p-2 rounded-lg border border-coffee-800/50 transition-all ${history.length > 0 ? 'bg-coffee-900/50 text-amber-500 hover:bg-coffee-900 active:scale-90' : 'opacity-20'}`}>
                                 <Icon name="undo-2" size={18} />
                             </button>
-                            <div className="flex p-0.5 bg-slate-950 rounded-lg border border-slate-800">
-                                <button onClick={() => setIsPortrait(true)} className={`p-1.5 rounded-md ${isPortrait ? 'bg-sky-500 text-white shadow-lg' : 'text-slate-500'}`}><Icon name="smartphone" size={16} /></button>
-                                <button onClick={() => setIsPortrait(false)} className={`p-1.5 rounded-md ${!isPortrait ? 'bg-sky-500 text-white shadow-lg' : 'text-slate-500'}`}><Icon name="monitor" size={16} /></button>
+                            <div className="flex p-0.5 bg-obsidian-950 rounded-lg border border-coffee-900">
+                                <button onClick={() => setIsPortrait(true)} className={`p-1.5 rounded-md transition-all ${isPortrait ? 'bg-coffee-700 text-coffee-50 shadow-lg' : 'text-coffee-500 hover:text-coffee-300'}`}><Icon name="smartphone" size={16} /></button>
+                                <button onClick={() => setIsPortrait(false)} className={`p-1.5 rounded-md transition-all ${!isPortrait ? 'bg-coffee-700 text-coffee-50 shadow-lg' : 'text-coffee-500 hover:text-coffee-300'}`}><Icon name="monitor" size={16} /></button>
                             </div>
-                            <button onClick={downloadJPG} className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-black px-4 py-1.5 rounded-full text-xs shadow-lg active:scale-95 transition-all">
-                                匯出
+                            <button onClick={downloadJPG} className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-obsidian-900 font-bold px-4 py-1.5 rounded-full text-xs shadow-lg active:scale-95 transition-all">
+                                匯出高解析
                             </button>
                         </div>
                     </header>
 
+                    {/* 主工作區畫布 */}
                     <main 
                         ref={containerRef} 
-                        className="flex-1 relative flex items-center justify-center p-4 bg-slate-950 overflow-hidden"
+                        className="flex-1 relative flex items-center justify-center p-4 bg-obsidian-950 overflow-hidden"
                         onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onTouchMove={handleMouseMove} onTouchEnd={handleMouseUp}
                         onClick={() => setSelectedId(null)}
                     >
                         <div 
                             ref={boardRef} 
-                            className="bg-white shadow-[0_20px_100px_rgba(0,0,0,0.8)] relative transition-transform duration-300 ease-out flex-shrink-0" 
+                            className="bg-white shadow-[0_25px_80px_rgba(0,0,0,0.85)] relative transition-transform duration-300 ease-out flex-shrink-0 border border-coffee-900/20" 
                             style={{ width: `${A4_WIDTH}px`, height: `${A4_HEIGHT}px`, transform: `scale(${scaleFactor})`, transformOrigin: 'center' }}
                         >
-                            <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: `linear-gradient(#000 1.5px, transparent 1.5px), linear-gradient(90deg, #000 1.5px, transparent 1.5px)`, backgroundSize: `${A4_WIDTH/4}px ${A4_HEIGHT/8}px` }}></div>
+                            {/* 雅緻輕背景網格 */}
+                            <div className="absolute inset-0 pointer-events-none opacity-[0.02]" style={{ backgroundImage: `linear-gradient(#000 1.5px, transparent 1.5px), linear-gradient(90deg, #000 1.5px, transparent 1.5px)`, backgroundSize: `${A4_WIDTH/4}px ${A4_HEIGHT/8}px` }}></div>
                             
+                            {/* 智能磁吸輔助線渲染 */}
+                            {snapLines.map((line, idx) => (
+                                <div
+                                    key={idx}
+                                    className="absolute pointer-events-none z-[49]"
+                                    style={{
+                                        left: line.type === 'v' ? `${line.val}px` : '0',
+                                        top: line.type === 'h' ? `${line.val}px` : '0',
+                                        width: line.type === 'v' ? '1.5px' : '100%',
+                                        height: line.type === 'h' ? '1.5px' : '100%',
+                                        borderLeft: line.type === 'v' ? '1.5px dashed #d97706' : 'none',
+                                        borderTop: line.type === 'h' ? '1.5px dashed #d97706' : 'none',
+                                        opacity: 0.85
+                                    }}
+                                />
+                            ))}
+
+                            {/* 物件渲染 */}
                             {[...canvasObjects].reverse().map(obj => (
                                 <div 
                                     key={obj.id} 
                                     onMouseDown={(e) => handleMouseDown(e, obj.id)} 
                                     onTouchStart={(e) => handleMouseDown(e, obj.id)}
                                     onClick={(e) => e.stopPropagation()}
-                                    className={`absolute cursor-move select-none transition-all ${selectedId === obj.id ? 'selected-object z-50' : 'hover:outline hover:outline-2 hover:outline-sky-400/30'}`} 
+                                    className={`absolute cursor-move select-none transition-all ${selectedId === obj.id ? 'selected-object z-50' : 'hover:outline hover:outline-2 hover:outline-amber-500/30'}`} 
                                     style={{ 
                                         left: `${obj.x}px`, 
                                         top: `${obj.y}px`, 
@@ -337,7 +510,7 @@
                                         transition: draggingId === obj.id ? 'none' : 'width 0.2s, height 0.2s, transform 0.2s'
                                     }}
                                 >
-                                    <div className="w-full h-full bg-slate-100 flex items-center justify-center overflow-hidden relative">
+                                    <div className="w-full h-full bg-stone-100 flex items-center justify-center overflow-hidden relative">
                                         <img 
                                             src={obj.url} 
                                             className="pointer-events-none" 
@@ -362,31 +535,36 @@
                                                     }
                                                 }}
                                             >
+                                                {/* 版面尺寸選單 */}
                                                 <div className="grid grid-cols-4 gap-2 w-full max-w-[280px]">
                                                     {['1', '1/2', '1/4', '1/8'].map(t => (
                                                         <button 
                                                             key={t}
                                                             onClick={(e) => { e.stopPropagation(); updateType(obj.id, t); }}
-                                                            className={`h-12 flex items-center justify-center rounded-xl text-xs font-black btn-active transition-all ${obj.type === t ? 'bg-sky-500 text-white shadow-[0_0_15px_rgba(56,189,248,0.5)]' : 'bg-slate-900/80 text-sky-200 border border-sky-400/20'}`}
+                                                            className={`h-11 flex items-center justify-center rounded-xl text-xs font-black btn-active transition-all ${obj.type === t ? 'bg-gradient-to-b from-amber-500 to-amber-600 text-obsidian-950 shadow-[0_0_15px_rgba(217,119,6,0.5)]' : 'bg-coffee-950/80 text-coffee-200 border border-coffee-800/40'}`}
                                                         >
                                                             {t}
                                                         </button>
                                                     ))}
                                                 </div>
 
+                                                {/* 工具操作列 */}
                                                 <div className="flex items-center gap-2 w-full max-w-[280px]">
-                                                    <button onClick={(e) => { e.stopPropagation(); toggleRotate(obj.id); }} className="flex-1 h-12 flex items-center justify-center bg-slate-900/80 text-sky-400 border border-sky-400/20 rounded-xl btn-active">
-                                                        <Icon name="rotate-cw" size={24} />
+                                                    <button onClick={(e) => { e.stopPropagation(); toggleRotate(obj.id); }} className="flex-1 h-11 flex items-center justify-center bg-coffee-900/80 text-amber-500 border border-coffee-800/40 rounded-xl btn-active hover:bg-coffee-800 transition-all">
+                                                        <Icon name="rotate-cw" size={20} />
                                                     </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); saveHistory(canvasObjects); setCanvasObjects(prev => [ { ...obj, id: Date.now(), x: obj.x+20, y: obj.y+20 }, ...prev ]); }} className="flex-1 h-12 flex items-center justify-center bg-slate-900/80 text-emerald-400 border border-emerald-400/20 rounded-xl btn-active">
-                                                        <Icon name="copy" size={24} />
+                                                    
+                                                    {/* 複製按鈕 */}
+                                                    <button onClick={(e) => handleDuplicate(e, obj)} className="flex-1 h-11 flex items-center justify-center bg-coffee-900/80 text-emerald-400 border border-coffee-800/40 rounded-xl btn-active hover:bg-coffee-800 transition-all">
+                                                        <Icon name="copy" size={20} />
                                                     </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); removeLayer(obj.id); }} className="flex-1 h-12 flex items-center justify-center bg-rose-500/20 text-rose-400 border border-rose-500/50 rounded-xl btn-active">
-                                                        <Icon name="trash-2" size={24} />
+                                                    
+                                                    <button onClick={(e) => { e.stopPropagation(); removeLayer(obj.id); }} className="flex-1 h-11 flex items-center justify-center bg-red-950/40 text-red-400 border border-red-900/50 rounded-xl btn-active hover:bg-red-950/80 transition-all">
+                                                        <Icon name="trash-2" size={20} />
                                                     </button>
                                                 </div>
                                                 
-                                                <div className="text-[10px] text-sky-400/30 font-black tracking-[0.2em] uppercase mt-1">
+                                                <div className="text-[10px] text-coffee-400 font-bold tracking-[0.2em] uppercase mt-1">
                                                     拖曳空白處可移動
                                                 </div>
                                             </div>
@@ -396,37 +574,40 @@
                             ))}
 
                             {canvasObjects.length === 0 && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-200 pointer-events-none opacity-[0.05]">
-                                    <Icon name="image" size={100} />
-                                    <p className="text-xl font-bold tracking-[0.2em] mt-4 uppercase text-center px-4">上傳並點選下方照片<br/>開始您的排版</p>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-coffee-800 pointer-events-none opacity-20">
+                                    <Icon name="image" size={80} className="stroke-1" />
+                                    <p className="text-sm font-bold tracking-[0.2em] mt-4 uppercase text-center px-4 line-height-relaxed">
+                                        上傳照片並點選下方縮圖<br/>
+                                    </p>
                                 </div>
                             )}
                         </div>
                     </main>
 
+                    {/* 奢華暗夜風資源庫抽屜 */}
                     <footer className="library-drawer h-24 shrink-0 flex flex-col z-50">
-                        <div className="px-4 py-2 flex items-center justify-between border-b border-slate-800/30">
-                            <h2 className="text-sm font-bold text-sky-400 uppercase tracking-widest flex items-center gap-2">
-                                <div className="w-1.5 h-3.5 bg-sky-500 rounded-full"></div> 資源庫
+                        <div className="px-4 py-1.5 flex items-center justify-between border-b border-coffee-950/40">
+                            <h2 className="text-xs font-bold text-coffee-300 uppercase tracking-widest flex items-center gap-2">
+                                <div className="w-1.5 h-3.5 bg-amber-500 rounded-full"></div> 相片資源庫
                             </h2>
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">STOCK: {uploadedImages.length}</span>
+                            <span className="text-[9px] font-bold text-coffee-500 tracking-tighter">庫存數: {uploadedImages.length}</span>
                         </div>
                         <div className="flex-1 overflow-x-auto overflow-y-hidden scrollbar-hide flex items-center px-4 gap-3">
                             {uploadedImages.map(img => (
                                 <div 
                                     key={img.id} 
                                     onClick={() => addLayer(img)} 
-                                    className="h-14 aspect-square rounded-xl overflow-hidden bg-slate-800/50 border border-slate-700/50 flex-shrink-0 active:scale-90 transition-all shadow-lg cursor-pointer group relative"
+                                    className="h-12 aspect-square rounded-xl overflow-hidden bg-coffee-950/50 border border-coffee-800/40 flex-shrink-0 active:scale-90 transition-all shadow-lg cursor-pointer group relative"
                                 >
-                                    <img src={img.url} className="w-full h-full object-cover opacity-70 group-hover:opacity-100" />
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-sky-500/20">
-                                        <div className="p-1 bg-sky-500 rounded-full shadow-lg"><Icon name="plus" size={10} className="text-white" /></div>
+                                    <img src={img.url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" />
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-amber-500/20 transition-all">
+                                        <div className="p-1 bg-amber-500 rounded-full shadow-md"><Icon name="plus" size={10} className="text-obsidian-950" /></div>
                                     </div>
                                 </div>
                             ))}
                             {uploadedImages.length === 0 && (
-                                <div className="flex-1 flex items-center justify-center text-slate-700 italic text-[10px] tracking-widest uppercase">
-                                    請上傳照片至此處
+                                <div className="flex-1 flex items-center justify-center text-coffee-600 italic text-[10px] tracking-widest uppercase">
+                                    請點選上方「上傳照片」按鈕新增
                                 </div>
                             )}
                         </div>
